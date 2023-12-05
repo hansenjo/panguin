@@ -60,6 +60,7 @@ class OnlineConfig {
   int LoadFile( std::ifstream& infile, const std::string& filename );
   int CheckLoadIncludeFile( const std::string& sline,
                             const VecStr_t& strvect );
+  bool ParseForMultiPlots( ConfLines_t::iterator pos );
 
   struct CommandDef {
     CommandDef( std::string c, size_t n,

@@ -503,8 +503,8 @@ string OnlineConfig::SubstituteRunNumber( string str, int runnumber ) const
 }
 
 //_____________________________________________________________________________
-static ConfLines_t::const_iterator
-ParsePageInfo( ConfLines_t::const_iterator pos, ConfLines_t::const_iterator end,
+static ConfLines_t::iterator
+ParsePageInfo( ConfLines_t::iterator pos, ConfLines_t::iterator end,
                PageInfo_t& pageInfo )
 {
   auto beg = pos, start = pos, first_page = end;
@@ -667,6 +667,8 @@ bool OnlineConfig::ParseConfig()
 
     ParseCommands(sConfFile.begin(), first_page, cmddefs);
 
+    ParseForMultiPlots(first_page);
+
     if( fVerbosity >= 3 ) {
       cout << "OnlineConfig::ParseConfig()\n";
       for( uint_t i = 0; i < GetPageCount(); i++ ) {
@@ -762,6 +764,76 @@ bool OnlineConfig::ParseConfig()
     cerr << "Error parsing configuration file: " << e.what() << endl;
     return false;
   }
+  return true;
+}
+
+//_____________________________________________________________________________
+// Parse through each line of sConfFile,
+// and replace each "multiplot" command with a real draw entry
+bool OnlineConfig::ParseForMultiPlots( ConfLines_t::iterator pos )
+{
+  const uint_t MAXMULTI = 64; // Maximum allowed number of iterations per command
+
+  // Check if any work to do
+  auto it = pos;
+  for( ; it != sConfFile.end(); ++it ) {
+    const auto& line = *it;
+    if( line[0] == "multiplot" ) {
+      break;
+    }
+  }
+  if( it == sConfFile.end() )
+    return false;
+
+  ConfLines_t newConfFile;
+  newConfFile.reserve(2 * sConfFile.size()); // guess the size
+
+  // Copy the configuration preamble as is
+  for( auto jt = sConfFile.begin(); jt != it; ++jt )
+    newConfFile.push_back(std::move(*jt));
+
+  // In the pages section, search for "multiplot" plot statements
+  // and convert them to actual plot commands
+  for( ; it != sConfFile.end(); ++it ) { // continue where we left off
+    auto& line = *it;
+    if( line[0] != "multiplot" ) {
+      newConfFile.push_back(std::move(line));
+    } else {
+      // The first and second arguments specify the index range (inclusive)
+      uint_t lolimit = StrToIntRange(line[1], 0, 65535, "multiplot lolimit");
+      uint_t hilimit = StrToIntRange(line[2], 0, 65535, "multiplot hilimit");
+      if( hilimit < lolimit ) {
+        cerr << "Warning: multiplot lolimit = " << lolimit
+             << " > hilimit = " << hilimit << ". Swapping values." << endl;
+        swap(lolimit, hilimit);
+      }
+      if( hilimit - lolimit + 1 > MAXMULTI ) {
+        cerr << "Warning: multiplot range too large: " << lolimit << "-"
+             << hilimit << ". Max " << MAXMULTI << ". Truncating range." << endl;
+        hilimit = lolimit + MAXMULTI - 1;
+      }
+      // The rest of this multiplot line becomes a series of new lines, indexed
+      // from lolimit to hilimit, inclusive. On each new line, all occurrences
+      // of "XXXXX" are replaced with the line index.
+      for( auto imult = lolimit; imult <= hilimit; imult++ ) {
+        const auto repl = to_string(imult);
+        VecStr_t newline(line.cbegin() + 3, line.cend());
+        for( auto& field: newline ) {
+          field = ReplaceAll(field, "XXXXX", repl);
+        }
+        newConfFile.push_back(std::move(newline));
+      }
+    }
+  }
+
+  // Out with the old, in with the new.
+  sConfFile.swap(newConfFile);
+  sConfFile.shrink_to_fit();
+
+  // Now need to recalculate pageInfo.
+  pageInfo.clear();
+  ParsePageInfo(ALL(sConfFile), pageInfo);
+
   return true;
 }
 
