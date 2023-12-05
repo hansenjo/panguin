@@ -48,14 +48,16 @@ class OnlineConfig {
   std::vector<uint_t> GetDrawIndex( uint_t );
   bool fFoundCfg;
   bool fMonitor;
+  bool fPrintOnly;
+  bool fSaveImages;
   int fVerbosity;
   int hist2D_nBinsX, hist2D_nBinsY;
   int fRunNumber;
   int fRunNoWidth;
   int fPageNoWidth;
   int fPadNoWidth;
-  bool fPrintOnly;
-  bool fSaveImages;
+  int fCanvasWidth;
+  int fCanvasHeight;
 
   int LoadFile( std::ifstream& infile, const std::string& filename );
   int CheckLoadIncludeFile( const std::string& sline,
@@ -144,6 +146,8 @@ public:
   int GetRunNoWidth() const { return fRunNoWidth; }
   int GetPageNoWidth() const { return fPageNoWidth; }
   int GetPadNoWidth() const { return fPadNoWidth; }
+  int GetCanvasWidth() const { return fCanvasWidth; };
+  int GetCanvasHeight() const { return fCanvasHeight; };
   bool DoPrintOnly() const { return fPrintOnly; }
   bool DoSaveImages() const { return fSaveImages; }
   const std::string& GetDefinedCut( const std::string& ident );

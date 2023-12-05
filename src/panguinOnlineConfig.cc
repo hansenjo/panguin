@@ -283,6 +283,8 @@ OnlineConfig::OnlineConfig( const CmdLineOpts& opts )
   , plotsdir(opts.plotsdir)
   , fFoundCfg(false)
   , fMonitor(false)
+  , fPrintOnly(opts.printonly)
+  , fSaveImages(opts.saveimages)
   , fVerbosity(opts.verbosity)
   , hist2D_nBinsX(0)
   , hist2D_nBinsY(0)
@@ -290,8 +292,8 @@ OnlineConfig::OnlineConfig( const CmdLineOpts& opts )
   , fRunNoWidth(0)
   , fPageNoWidth(2)
   , fPadNoWidth(2)
-  , fPrintOnly(opts.printonly)
-  , fSaveImages(opts.saveimages)
+  , fCanvasWidth(1120)   // -> window width = 1600
+  , fCanvasHeight(1080)  // -> window height = 1200
 {
   // Pick up config file directory/path form environment.
   // A config dir or path given on the command line takes preference.
@@ -662,6 +664,11 @@ bool OnlineConfig::ParseConfig()
         fPageNoWidth = StrToIntRange(line[2], 0, 5,
                                      "ndigits page number width");
         fPadNoWidth = StrToIntRange(line[3], 0, 3, "ndigits pad number width");
+      }},
+      {"canvassize",
+        2, [&]( const VecStr_t& line ) {
+        fCanvasWidth = StrToIntRange(line[1], 640, 4096, "canvas width");
+        fCanvasHeight = StrToIntRange(line[2], 480, 4096, "canvas height");
       }}
     };
 

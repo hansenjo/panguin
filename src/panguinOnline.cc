@@ -177,7 +177,10 @@ OnlineGUI::OnlineGUI( OnlineConfig config )
     throw runtime_error("Error opening ROOT file");
 
   if( !fPrintOnly )
-    CreateGUI(gClient->GetRoot(), 1600, 1200);
+    CreateGUI(gClient->GetRoot(),
+              UInt_t(fConfig.GetCanvasWidth() / 0.7),
+              UInt_t(fConfig.GetCanvasHeight() / 0.9)
+    );
 }
 
 void OnlineGUI::CreateGUI( const TGWindow* p, UInt_t w, UInt_t h )
@@ -291,7 +294,7 @@ void OnlineGUI::CreateGUI( const TGWindow* p, UInt_t w, UInt_t h )
   fMain->AddFrame(fBottomFrame, new TGLayoutHints(kLHintsExpandX, 10, 10, 10, 10));
 
   // Create a horizontal frame widget with buttons
-  hframe = new TGHorizontalFrame(fBottomFrame, 1200, 40);
+  hframe = new TGHorizontalFrame(fBottomFrame, w, 40);
   hframe->SetBackgroundColor(mainguicolor);
   //fBottomFrame->AddFrame(hframe,new TGLayoutHints(kLHintsExpandX,200,20,2,2));
   fBottomFrame->AddFrame(hframe, new TGLayoutHints(kLHintsExpandX, 2, 2, 2, 2));
@@ -1265,7 +1268,8 @@ void OnlineGUI::PrintPages()
   if( !fRootFile )
     throw runtime_error("No ROOT file");
 
-  fCanvas = new TCanvas("fCanvas", "trythis", 1000, 800);
+  fCanvas = new TCanvas("fCanvas", "Panguin Canvas",
+                        fConfig.GetCanvasWidth(), fConfig.GetCanvasHeight());
   auto* lt = new TLatex();
 
   Bool_t pagePrint = kFALSE;
