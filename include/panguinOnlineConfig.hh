@@ -38,6 +38,7 @@ class OnlineConfig {
   std::string fImageFormat;       // File format for saved image files (default: png)
   std::string fImagesDir;         // Where to save individual images
   std::string plotsdir;           // Where to save plots
+  std::string fStyleFile;         // Plot style macro
   // the config file, in memory
   ConfLines_t sConfFile;
   VecStr_t    fProtoRootFiles; // Candidate ROOT file names
@@ -85,7 +86,7 @@ public:
     CmdLineOpts( std::string f, std::string d, std::string rf,
                  std::string gf, std::string rd, std::string pf,
                  std::string ifm, std::string pd, std::string id,
-                 int rn, int v, bool po, bool si )
+                 std::string sf, int rn, int v, bool po, bool si )
       : cfgfile(std::move(f))
       , cfgdir(std::move(d))
       , rootfile(std::move(rf))
@@ -95,6 +96,7 @@ public:
       , imgfmt(std::move(ifm))
       , plotsdir(std::move(pd))
       , imgdir(std::move(id))
+      , stylefile(std::move(sf))
       , run(rn)
       , verbosity(v)
       , printonly(po)
@@ -109,6 +111,7 @@ public:
     std::string imgfmt;
     std::string plotsdir;
     std::string imgdir;
+    std::string stylefile;
     int run{0};
     int verbosity{0};
     bool printonly{false};
@@ -142,6 +145,7 @@ public:
   const std::string& GetImageFormat() const { return fImageFormat; }
   const std::string& GetPlotsDir() const { return plotsdir; };
   const std::string& GetImagesDir() const { return fImagesDir; };
+  const std::string& GetStyleFile() const { return fStyleFile; };
   int GetVerbosity() const { return fVerbosity; }
   int GetRunNoWidth() const { return fRunNoWidth; }
   int GetPageNoWidth() const { return fPageNoWidth; }

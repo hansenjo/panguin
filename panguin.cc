@@ -16,7 +16,7 @@ unique_ptr<OnlineGUI> online( const OnlineConfig::CmdLineOpts& opts );
 
 int main( int argc, char** argv )
 {
-  string cfgfile{"default.cfg"}, rootfile, goldenfile;
+  string cfgfile{"default.cfg"}, rootfile, goldenfile, stylefile;
   string plotfmt, imgfmt;
   string cfgdir, rootdir, pltdir, imgdir;
   int run{0};
@@ -65,6 +65,9 @@ int main( int argc, char** argv )
     cli.add_option("-v,--verbosity", verbosity,
                    "Set verbosity level (>=0)")
       ->type_name("<level>");
+    cli.add_option("--style-file", stylefile,
+                   "Macro for setting global gStyle options")
+      ->type_name("<file name>");
     cli.set_version_flag("-V,--version", PANGUIN_VERSION);
 
     CLI11_PARSE(cli, argc, argv)
@@ -92,7 +95,7 @@ int main( int argc, char** argv )
     TApplication theApp("panguin2", &argc, argv, nullptr, -1);
     auto gui
       = online({cfgfile, cfgdir, rootfile, goldenfile, rootdir, plotfmt,
-                imgfmt, pltdir, imgdir, run, verbosity, printonly,
+                imgfmt, pltdir, imgdir, stylefile, run, verbosity, printonly,
                 saveImages});
     if( gui ) {
       if( gui->IsPrintOnly() )

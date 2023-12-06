@@ -376,38 +376,40 @@ void OnlineGUI::DoDraw()
 {
   // The main Drawing Routine.
 
-  gStyle->SetOptStat(1110);
-  //gStyle->SetStatFontSize(0.1);
-  if( fConfig.IsLogy(current_page) ) {
-    gStyle->SetOptLogy(1);
+  if( fConfig.GetStyleFile().empty() ) {
+    // Default style
+    gStyle->SetOptStat(1110);
+    //gStyle->SetStatFontSize(0.1);
+    //   gStyle->SetTitleH(0.10);
+    //   gStyle->SetTitleW(0.40);
+    gStyle->SetTitleH(0.1);
+    //  gStyle->SetTitleX(0.55);
+    //gStyle->SetTitleW(0.6);
+    //gStyle->SetTitleW(0.60);
+    //gStyle->SetStatH(0.2);
+    gStyle->SetStatW(0.25);
+    gStyle->SetStatX(0.9);
+    gStyle->SetStatY(0.88);
+    //   gStyle->SetLabelSize(0.10,"X");
+    //   gStyle->SetLabelSize(0.10,"Y");
+    gStyle->SetLabelSize(0.05, "X");
+    gStyle->SetLabelSize(0.05, "Y");
+    gStyle->SetPadLeftMargin(0.15);
+    gStyle->SetPadBottomMargin(0.08);
+    gStyle->SetPadRightMargin(0.1);
+    gStyle->SetPadTopMargin(0.12);
+    // gStyle->SetNdivisions(505,"X");
+    // gStyle->SetNdivisions(404,"Y");
+    gStyle->SetNdivisions(505, "XYZ");
   } else {
-    gStyle->SetOptLogy(0);
+    // Load up a user-configurable style
+    gROOT->Macro(fConfig.GetStyleFile().c_str());
   }
-  //   gStyle->SetTitleH(0.10);
-  //   gStyle->SetTitleW(0.40);
-  gStyle->SetTitleH(0.1);
-  //  gStyle->SetTitleX(0.55);
-  //gStyle->SetTitleW(0.6);
-  //gStyle->SetTitleW(0.60);
-  //gStyle->SetStatH(0.2);
-  gStyle->SetStatW(0.25);
-  gStyle->SetStatX(0.9);
-  gStyle->SetStatY(0.88);
-  //   gStyle->SetLabelSize(0.10,"X");
-  //   gStyle->SetLabelSize(0.10,"Y");
-  gStyle->SetLabelSize(0.05, "X");
-  gStyle->SetLabelSize(0.05, "Y");
-  gStyle->SetPadLeftMargin(0.15);
-  gStyle->SetPadBottomMargin(0.08);
-  gStyle->SetPadRightMargin(0.1);
-  gStyle->SetPadTopMargin(0.12);
-  // gStyle->SetNdivisions(505,"X");
-  // gStyle->SetNdivisions(404,"Y");
-  // gROOT->ForceStyle();
+
+  gStyle->SetOptLogy(fConfig.IsLogy(current_page) ? 1 : 0);
 
   TGaxis::SetMaxDigits(3);
 
-  gStyle->SetNdivisions(505, "XYZ");
   gROOT->ForceStyle();
 
   // Determine the dimensions of the canvas..

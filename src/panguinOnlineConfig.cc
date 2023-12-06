@@ -281,6 +281,7 @@ OnlineConfig::OnlineConfig( const CmdLineOpts& opts )
   , fImageFormat(opts.imgfmt)
   , fImagesDir(opts.imgdir)
   , plotsdir(opts.plotsdir)
+  , fStyleFile(opts.stylefile)
   , fFoundCfg(false)
   , fMonitor(false)
   , fPrintOnly(opts.printonly)
@@ -658,6 +659,11 @@ bool OnlineConfig::ParseConfig()
         1, [&]( const VecStr_t& line ) {
         fProtoMacroImageFile = ExpandFileName(line[1]);
       }},
+      {"stylefile",
+        1, [&]( const VecStr_t& line ) {
+        if( !IsSet(fStyleFile, line[0]) )
+          fStyleFile = ExpandFileName(line[1]);
+      }},
       {"ndigits",
         3, [&]( const VecStr_t& line ) {
         fRunNoWidth = StrToIntRange(line[1], 0, 8, "ndigits run number width");
@@ -754,6 +760,18 @@ bool OnlineConfig::ParseConfig()
                            "protomacroimagefile");
       if( !(b1 || b2) )
         fImagesDir.clear();  // Don't create possibly spurious directory
+    }
+
+    //TODO: set style file if running as onlineGUI
+
+    if( !fStyleFile.empty() ) {
+      ifstream infile;
+      auto stylepath = OpenInPath(fStyleFile, fConfFilePath, infile);
+      if( infile )
+        fStyleFile = stylepath + "/" + BasenameStr(fStyleFile);
+      else
+        fStyleFile.clear();
+      infile.close();
     }
 
     // Honor requested plot format
