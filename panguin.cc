@@ -23,6 +23,7 @@ int main( int argc, char** argv )
   int verbosity{0};
   bool printonly{false};
   bool saveImages{false};
+  bool hallc{false};
 
   try {
     CLI::App cli("panguin: configurable ROOT data visualization tool");
@@ -72,6 +73,9 @@ int main( int argc, char** argv )
 
     CLI11_PARSE(cli, argc, argv)
 
+    if( BasenameStr(cli.get_name()) == "onlineGUI" )
+      hallc = true;
+
     if( saveImages ) {
       printonly = true;
       if( imgdir.empty() )
@@ -96,7 +100,7 @@ int main( int argc, char** argv )
     auto gui
       = online({cfgfile, cfgdir, rootfile, goldenfile, rootdir, plotfmt,
                 imgfmt, pltdir, imgdir, stylefile, run, verbosity, printonly,
-                saveImages});
+                saveImages, hallc});
     if( gui ) {
       if( gui->IsPrintOnly() )
         gui->PrintPages();

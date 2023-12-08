@@ -51,6 +51,7 @@ class OnlineConfig {
   bool fMonitor;
   bool fPrintOnly;
   bool fSaveImages;
+  bool fHallC;                   // Use Hall C defaults where applicable
   int fVerbosity;
   int hist2D_nBinsX, hist2D_nBinsY;
   int fRunNumber;
@@ -86,7 +87,7 @@ public:
     CmdLineOpts( std::string f, std::string d, std::string rf,
                  std::string gf, std::string rd, std::string pf,
                  std::string ifm, std::string pd, std::string id,
-                 std::string sf, int rn, int v, bool po, bool si )
+                 std::string sf, int rn, int v, bool po, bool si, bool hc )
       : cfgfile(std::move(f))
       , cfgdir(std::move(d))
       , rootfile(std::move(rf))
@@ -101,6 +102,7 @@ public:
       , verbosity(v)
       , printonly(po)
       , saveimages(si)
+      , hallc(hc)
     {}
     std::string cfgfile;
     std::string cfgdir;
@@ -116,6 +118,7 @@ public:
     int verbosity{0};
     bool printonly{false};
     bool saveimages{false};
+    bool hallc{false};
   };
 
   OnlineConfig();
@@ -154,6 +157,7 @@ public:
   int GetCanvasHeight() const { return fCanvasHeight; };
   bool DoPrintOnly() const { return fPrintOnly; }
   bool DoSaveImages() const { return fSaveImages; }
+  bool IsHallC() const { return fHallC; }
   const std::string& GetDefinedCut( const std::string& ident );
   VecStr_t GetCutIdent();
   // Page utilites

@@ -286,6 +286,7 @@ OnlineConfig::OnlineConfig( const CmdLineOpts& opts )
   , fMonitor(false)
   , fPrintOnly(opts.printonly)
   , fSaveImages(opts.saveimages)
+  , fHallC(opts.hallc)
   , fVerbosity(opts.verbosity)
   , hist2D_nBinsX(0)
   , hist2D_nBinsY(0)
@@ -296,6 +297,10 @@ OnlineConfig::OnlineConfig( const CmdLineOpts& opts )
   , fCanvasWidth(1120)   // -> window width = 1600
   , fCanvasHeight(1080)  // -> window height = 1200
 {
+  // Add .cfg extension if necessary, for compatibility with Hall C
+  if( fHallC && !EndsWith(confFileName, ".cfg"))
+    confFileName += ".cfg";
+
   // Pick up config file directory/path form environment.
   // A config dir or path given on the command line takes preference.
   string cfgpath = opts.cfgdir;
@@ -762,7 +767,8 @@ bool OnlineConfig::ParseConfig()
         fImagesDir.clear();  // Don't create possibly spurious directory
     }
 
-    //TODO: set style file if running as onlineGUI
+    if( fHallC && fStyleFile.empty() )
+      fStyleFile = "onlineGUI_Style.C";
 
     if( !fStyleFile.empty() ) {
       ifstream infile;
