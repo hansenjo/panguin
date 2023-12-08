@@ -5,6 +5,5 @@
 #pragma link off all functions;
 
 #pragma link C++ class OnlineGUI+;
-#pragma link C++ class OnlineConfig+;
 
 #endif

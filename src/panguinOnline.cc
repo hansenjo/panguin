@@ -406,7 +406,9 @@ void OnlineGUI::DoDraw()
     gROOT->Macro(fConfig.GetStyleFile().c_str());
   }
 
+  gStyle->SetOptLogx(fConfig.IsLogx(current_page) ? 1 : 0);
   gStyle->SetOptLogy(fConfig.IsLogy(current_page) ? 1 : 0);
+  gStyle->SetOptLogz(fConfig.IsLogz(current_page) ? 1 : 0);
 
   TGaxis::SetMaxDigits(3);
 

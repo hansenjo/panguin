@@ -511,25 +511,153 @@ string OnlineConfig::SubstituteRunNumber( string str, int runnumber ) const
 }
 
 //_____________________________________________________________________________
-static ConfLines_t::iterator
-ParsePageInfo( ConfLines_t::iterator pos, ConfLines_t::iterator end,
-               PageInfo_t& pageInfo )
+// Parser for numeric arguments of newpage command with error handling
+static inline uint_t StrToUInt( const string& str, uint_t page )
 {
-  auto beg = pos, start = pos, first_page = end;
+  string errtxt;
+  const uint_t MAXVAL = 50;
+  try {
+    size_t pos = 0;
+    int val = stoi(str, &pos);
+    if( pos == str.size() && val > 0 && val < MAXVAL )
+      return val;
+    if( val <= 0 )
+      errtxt = "Number must be > 0";
+    else if( val >= MAXVAL )
+      errtxt = "Number must be < " + to_string(MAXVAL);
+    else
+      errtxt = "Garbage following number";
+  }
+  catch( const std::out_of_range& ) {
+    errtxt = "Number out of range";
+  }
+  catch( const std::invalid_argument& ) {
+    errtxt = "Expected a number";
+  }
+  cerr << "Warning: Invalid argument \"" << str << "\" following newpage"
+       << " command for page " << page << ": " << errtxt << ". "
+       << "Will automatically determine dimensions of page." << endl;
+  return 0;   // indicates conversion failure
+}
+
+//_____________________________________________________________________________
+// Parse the "newpage" command with options:
+//
+// newpage               -> automatically find approx. square layout based
+//                          on the number of plots defined for this page
+// newpage  n            -> n by n layout
+// newpage  x y          -> x by y layout
+//
+// Each of the above may be followed by an optional argument indicating
+// that one or more axes should have logarithmic scale:
+//
+// logx, logy, logxy, logz
+//
+// Any other arguments following "newpage", or malformed arguments, produce
+// a warning and are ignored. Negative or zero numbers are considered invalid.
+//
+void OnlineConfig::PageInfo::parse_newpage( const VecStr_t& pagedef, uint_t page )
+{
+  auto narg = pagedef.size();
+  assert( narg > 0 && pagedef[0] == "newpage");  // else error ParsePageInfo
+  --narg;
+
+  flags = 0;
+  if( narg > 0 ) {
+    const auto& option = pagedef.back();
+    if( option == "logx" )
+      flags |= kLogx;
+    else if( option == "logy" )
+      flags |= kLogy;
+    else if( option == "logz" )
+      flags |= kLogz;
+    else if( option == "logxy" )
+      flags |= kLogx|kLogy;
+    if( flags != 0 )
+      --narg;
+    if( narg == 1 || narg == 2 ) {
+      uint_t i = 0;
+      uint_t out_dim[2] = {0, 0};
+      while( i < narg ) {
+        out_dim[i] = StrToUInt(pagedef[i + 1], page);
+        if( out_dim[i] == 0 )
+          break;  // Expected number failed to convert
+        ++i;
+      }
+      if( i == narg ) {
+        nx = out_dim[0];
+        ny = ( narg == 2 ) ? out_dim[1] : nx;
+        return;
+      }
+    } else if( narg > 2 ) {
+      cerr << "Warning: newpage command for page " << page << " has too many "
+           << "arguments. Will automatically determine dimensions of page."
+           << endl;
+    }
+  }
+  uint_t dim = lround(sqrt(draw_count + 1));
+  nx = ny = dim;
+}
+
+//_____________________________________________________________________________
+void OnlineConfig::PageInfo::set_title( const VecStr_t& titledef, uint_t page )
+{
+  assert(!titledef.empty() && titledef[0] == "title");
+
+  // Combine all the remaining arguments into one (for backward compatibility
+  // with old config files that do not have quotes around the title string)
+  title.clear();
+  for( auto jt = titledef.begin() + 1; jt != titledef.end(); ++jt ) {
+    title += *jt;
+    if( jt + 1 != titledef.end() )
+      title += " ";
+  }
+  if( title.empty() )
+    set_default_title(page);
+}
+
+//_____________________________________________________________________________
+void OnlineConfig::PageInfo::set_default_title( uint_t page )
+{
+  title = "Page " + to_string(page + 1);
+}
+
+//_____________________________________________________________________________
+// Extract list of pages to plot with positions of parameters of each page
+OnlineConfig::ConfLines_t::iterator OnlineConfig::ParsePageInfo(
+  ConfLines_t::iterator pos, ConfLines_t::iterator end )
+{
+  auto beg = pos, start = pos,
+    first_page = end, title_pos = end;
   bool counting = false;
-  uint_t command_cnt = 0;
+  uint_t command_cnt = 0, draw_count = 0;
   for( ; pos != end; ++pos ) {
-    if( (*pos)[0] == "newpage" ) {
+    const auto& cmd = (*pos)[0];
+    if( cmd == "newpage" ) {
       if( counting )
         goto finish_page;
       counting = true;
       start = first_page = pos;
     } else if( counting ) {
       ++command_cnt;
+      if( cmd != "title" )
+        ++draw_count;
+      else if( title_pos == end ) // Take first "title" command, ignore followups
+        title_pos = pos;
       if( pos + 1 == end ) {
   finish_page:
-        pageInfo.emplace_back(start - beg, command_cnt);
-        command_cnt = 0;
+        // Save parameters of this page
+        pageInfo.emplace_back(start - beg, command_cnt, draw_count);
+        uint_t page = pageInfo.size() - 1;
+        auto& newpage = pageInfo.back();
+        newpage.parse_newpage(*start, page);
+        if( title_pos != end )
+          newpage.set_title(*title_pos, page);
+        else
+          newpage.set_default_title(page);
+        // Reset state and proceed to next page
+        command_cnt = draw_count = 0;
+        title_pos = end;
         start = pos;
       }
     }
@@ -580,7 +708,7 @@ bool OnlineConfig::ParseConfig()
 
   try {
     // Find "newpage" commands and store their locations and lengths
-    auto first_page = ParsePageInfo(ALL(sConfFile), pageInfo);
+    auto first_page = ParsePageInfo(ALL(sConfFile));
 
     // List of defined commands and corresponding actions
     vector<CommandDef> cmddefs = {
@@ -863,14 +991,14 @@ bool OnlineConfig::ParseForMultiPlots( ConfLines_t::iterator pos )
 
   // Now need to recalculate pageInfo.
   pageInfo.clear();
-  ParsePageInfo(ALL(sConfFile), pageInfo);
+  ParsePageInfo(ALL(sConfFile));
 
   return true;
 }
 
 //_____________________________________________________________________________
 // Returns the defined cut, according to the identifier
-const string& OnlineConfig::GetDefinedCut( const string& ident )
+const string& OnlineConfig::GetDefinedCut( const string& ident ) const
 {
   static const string nullstr{};
 
@@ -884,7 +1012,7 @@ const string& OnlineConfig::GetDefinedCut( const string& ident )
 
 //_____________________________________________________________________________
 // Returns a vector of the cut identifiers, specified in config
-vector<string> OnlineConfig::GetCutIdent()
+VecStr_t OnlineConfig::GetCutIdent() const
 {
   vector<string> out;
 
@@ -895,100 +1023,43 @@ vector<string> OnlineConfig::GetCutIdent()
 }
 
 //_____________________________________________________________________________
-// Check if last word on line is "logy"
-bool OnlineConfig::IsLogy( uint_t page )
-{
-  uint_t page_index = pageInfo[page].first;
-  size_t word_index = sConfFile[page_index].size() - 1;
-  if( word_index <= 0 ) return false;
-  const string& option = sConfFile[page_index][word_index];
-  if( option == "logy" ) {
-    cout << endl << "Found a logy!!!" << endl << endl;
-    return true;
-  }
-  if( fVerbosity >= 1 ) {
-    cout << "OnlineConfig::IsLogy()     " << option << " " << page_index << " " << word_index
-         << " " << sConfFile[page_index].size() << endl;
-    for( const auto& opts: sConfFile[page_index] ) {
-      cout << opts << " ";
-    }
-  }
-  return false;
+// Check if a log plotting requested for the given page
+bool OnlineConfig::IsLogx ( uint_t page ) const {
+  return (pageInfo.at(page).flags & kLogx) != 0;
+}
+bool OnlineConfig::IsLogy ( uint_t page ) const {
+  return (pageInfo.at(page).flags & kLogy) != 0;
+}
+bool OnlineConfig::IsLogz ( uint_t page ) const {
+  return (pageInfo.at(page).flags & kLogz) != 0;
 }
 
 //_____________________________________________________________________________
-// If defined in the config, will return those dimensions
-//  for the indicated page.  Otherwise, will return the
-//  calculated dimensions required to fit all histograms.
-pair<uint_t, uint_t> OnlineConfig::GetPageDim( uint_t page )
+// Get the "page dimensions", i.e. the layout of the given page in terms of
+// subpages. This is indicated by numbers following "newpage", as follows:
+//
+OnlineConfig::pagedim_t OnlineConfig::GetPageDim( uint_t page ) const
 {
-  pair<uint_t, uint_t> outDim;
-
-  // This is the page index in sConfFile.
-  uint_t page_index = pageInfo[page].first;
-
-  uint_t size1 = 2;
-  if( IsLogy(page) ) size1 = 3;  // last word is "logy"
-
-  // If the dimensions are defined, return them.
-  if( sConfFile[page_index].size() > size1 - 1 ) {
-    if( sConfFile[page_index].size() == size1 ) {
-      outDim = make_pair(uint_t(stoi(sConfFile[page_index][1])),
-                         uint_t(stoi(sConfFile[page_index][1])));
-      return outDim;
-    } else if( sConfFile[page_index].size() == size1 + 1 ) {
-      outDim = make_pair(uint_t(stoi(sConfFile[page_index][1])),
-                         uint_t(stoi(sConfFile[page_index][2])));
-      return outDim;
-    } else {
-      cout << "Warning: newpage command has too many arguments. "
-           << "Will automatically determine dimensions of page."
-           << endl;
-    }
-  }
-
-  // If not defined, return the "default."
-  uint_t draw_count = GetDrawCount(page);
-  uint_t dim = lround(sqrt(draw_count + 1));
-  outDim = make_pair(dim, dim);
-
-  return outDim;
+  return pageInfo.at(page).get_dim();
 }
 
 //_____________________________________________________________________________
 // Returns the title of the page. Page numbers start at 1.
 //  if it is not defined in the config, then return "Page #"
-string OnlineConfig::GetPageTitle( uint_t page )
+string OnlineConfig::GetPageTitle( uint_t page ) const
 {
-  string title;
-  uint_t iter_command = pageInfo[page].first + 1;
-
-  for( uint_t i = 0; i < pageInfo[page].second; i++ ) { // go through each command
-    if( sConfFile[iter_command + i][0] == "title" ) {
-      // Combine the strings, and return it
-      for( uint_t j = 1; j < sConfFile[iter_command + i].size(); j++ ) {
-        title += sConfFile[iter_command + i][j];
-        title += " ";
-      }
-      if( !title.empty() )
-        title.erase(title.size() - 1);
-      return title;
-    }
-  }
-  title = "Page ";
-  title += to_string(page+1);
-  return title;
+  return pageInfo.at(page).title;
 }
 
 //_____________________________________________________________________________
 // Returns an index of where to find the draw commands within a page
 //  within the sConfFile vector
-vector<uint_t> OnlineConfig::GetDrawIndex( uint_t page )
+vector<uint_t> OnlineConfig::GetDrawIndex( uint_t page ) const
 {
   vector<uint_t> index;
-  uint_t iter_command = pageInfo[page].first + 1;
+  uint_t iter_command = pageInfo[page].page_index + 1;
 
-  for( uint_t i = 0; i < pageInfo[page].second; i++ ) {
+  for( uint_t i = 0; i < pageInfo[page].cmd_count; i++ ) {
     if( sConfFile[iter_command + i][0] != "title" ) {
       index.push_back(iter_command + i);
     }
@@ -999,15 +1070,9 @@ vector<uint_t> OnlineConfig::GetDrawIndex( uint_t page )
 
 //_____________________________________________________________________________
 // Returns the number of histograms that have been requested for this page
-uint_t OnlineConfig::GetDrawCount( uint_t page )
+uint_t OnlineConfig::GetDrawCount( uint_t page ) const
 {
-  uint_t draw_count = 0;
-
-  for( uint_t i = 0; i < pageInfo[page].second; i++ ) {
-    if( sConfFile[pageInfo[page].first + i + 1][0] != "title" ) draw_count++;
-  }
-
-  return draw_count;
+  return pageInfo.at(page).draw_count;
 }
 
 //_____________________________________________________________________________
@@ -1027,7 +1092,7 @@ uint_t OnlineConfig::GetDrawCount( uint_t page )
 //  all options on one line. First argument assumed to be histogram or tree name (or "macro")
 //
 void OnlineConfig::GetDrawCommand(
-  uint_t page, uint_t nCommand, std::map<string, string>& out_command )
+  uint_t page, uint_t nCommand, std::map<string, string>& out_command ) const
 {
   out_command.clear();
 

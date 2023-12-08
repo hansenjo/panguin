@@ -12,17 +12,18 @@ std::string DirnameStr( std::string path );
 std::string BasenameStr( std::string path );
 
 using uint_t = unsigned int;
-using strstr_t = std::pair<std::string, std::string>;
 using VecStr_t = std::vector<std::string>;
-using ConfLines_t = std::vector<VecStr_t>;
-using PageInfo_t = std::vector<std::pair<uint_t, uint_t>>;
 
 std::string ReplaceAll(
   std::string str, const std::string& ostr, const std::string& nstr );
 bool EndsWith( const std::string& str, const std::string& tail );
 
+// Class that takes care of the config file
 class OnlineConfig {
-  // Class that takes care of the config file
+  using strstr_t = std::pair<std::string, std::string>;
+  using ConfLines_t = std::vector<VecStr_t>;
+  using pagedim_t = std::pair<uint_t, uint_t>;
+
   std::string confFileName;       // config filename
   std::string fConfFileDir;       // Directory where config file found
   std::string fConfFilePath;      // Search path for configuration files
@@ -42,11 +43,31 @@ class OnlineConfig {
   // the config file, in memory
   ConfLines_t sConfFile;
   VecStr_t    fProtoRootFiles; // Candidate ROOT file names
+
   // pageInfo is the vector of the pages containing the sConfFile index
   //   and how many commands issued within that page (title, 1d, etc.)
-  PageInfo_t  pageInfo;
+
+  // Bits for PageInfo::flags
+  enum EPageFlags { kLogx = 1, kLogy = 2, kLogz = 4 };
+  struct PageInfo {
+    PageInfo() = default;
+    PageInfo( uint_t pos, uint_t ncmd, uint_t ndraw )
+      : page_index{pos}, cmd_count{ncmd}, draw_count{ndraw} {}
+    pagedim_t get_dim() const { return std::make_pair(nx, ny); }
+    void parse_newpage( const VecStr_t& pagedef, uint_t page );
+    void set_title( const VecStr_t& titledef, uint_t page );
+    void set_default_title( uint_t page );
+    uint_t page_index{0};
+    uint_t cmd_count{0};
+    uint_t draw_count{0};
+    uint_t nx{0};
+    uint_t ny{0};
+    uint_t flags{0};
+    std::string title;
+  };
+  std::vector<PageInfo> pageInfo;
+
   std::vector<strstr_t> cutList;
-  std::vector<uint_t> GetDrawIndex( uint_t );
   bool fFoundCfg;
   bool fMonitor;
   bool fPrintOnly;
@@ -64,7 +85,10 @@ class OnlineConfig {
   int LoadFile( std::ifstream& infile, const std::string& filename );
   int CheckLoadIncludeFile( const std::string& sline,
                             const VecStr_t& strvect );
+  ConfLines_t::iterator ParsePageInfo( ConfLines_t::iterator pos,
+                                       ConfLines_t::iterator end );
   bool ParseForMultiPlots( ConfLines_t::iterator pos );
+  std::vector<uint_t> GetDrawIndex( uint_t page ) const;
 
   struct CommandDef {
     CommandDef( std::string c, size_t n,
@@ -77,7 +101,6 @@ class OnlineConfig {
   static int ParseCommands( ConfLines_t::const_iterator pos,
                             ConfLines_t::const_iterator end,
                             const std::vector<CommandDef>& items );
-
 
 public:
   struct CmdLineOpts {
@@ -158,17 +181,20 @@ public:
   bool DoPrintOnly() const { return fPrintOnly; }
   bool DoSaveImages() const { return fSaveImages; }
   bool IsHallC() const { return fHallC; }
-  const std::string& GetDefinedCut( const std::string& ident );
-  VecStr_t GetCutIdent();
-  // Page utilites
-  uint_t GetPageCount() { return pageInfo.size(); };
-  std::pair<uint_t, uint_t> GetPageDim( uint_t );
-  bool IsLogy( uint_t page );
-  std::string GetPageTitle( uint_t );
-  uint_t GetDrawCount( uint_t );           // Number of histograms in a page
-  void GetDrawCommand( uint_t, uint_t, std::map<std::string, std::string>& );
-  void OverrideRootFile( int runnumber );
   bool IsMonitor() const { return fMonitor; };
+  const std::string& GetDefinedCut( const std::string& ident ) const;
+  VecStr_t GetCutIdent() const;
+  void GetDrawCommand( uint_t page, uint_t nCommand,
+                       std::map<std::string, std::string>& out_command ) const;
+  void OverrideRootFile( int runnumber );
+  // Page utilites
+  uint_t GetPageCount() const { return pageInfo.size(); };
+  pagedim_t GetPageDim( uint_t page ) const;
+  std::string GetPageTitle( uint_t page ) const;
+  uint_t GetDrawCount( uint_t page ) const;   // Number of histograms in a page
+  bool IsLogx( uint_t page ) const;
+  bool IsLogy( uint_t page ) const;
+  bool IsLogz( uint_t page ) const;
 };
 
 #endif //panguinOnlineConfig_h
