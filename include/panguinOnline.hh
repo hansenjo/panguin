@@ -15,6 +15,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
 #include <TString.h>
 #include <TCut.h>
 #include <TTimer.h>
@@ -65,13 +66,17 @@ class OnlineGUI {
   Bool_t fSaveImages;
 
   struct RootFileObj {
+    // For ordering std::set
+    bool operator<(const RootFileObj& other ) const {
+      return name < other.name;
+    }
     TString name;   // Full path to object (dir/objname)
     TString title;  // Object title
     TString type;   // Object class name
   };
   std::vector<TTree*> fRootTree;
   std::vector<Int_t> fTreeEntries;
-  std::vector<RootFileObj> fileObjects;
+  std::set<RootFileObj> fileObjects;
   std::vector<std::vector<TString> > treeVars;
 
   std::string SubstitutePlaceholders(
@@ -89,7 +94,8 @@ public:
   void DoListBox( Int_t id );
   void CheckPageButtons();
   // Specific Draw Methods
-  Bool_t IsHistogram( const TString& objectname );
+  Bool_t IsHistogram( const TString& objectname ) const;
+  static Bool_t IsHistogram( const RootFileObj& fileObject );
   Bool_t IsPrintOnly() const { return fPrintOnly; }
   void GetFileObjects();
   void ScanFileObjects( TIter& iter, const TString& directory );

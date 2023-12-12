@@ -23,7 +23,6 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
-#include <list>
 #include <sys/stat.h>
 #include <ctime>
 #include <utility>
@@ -544,21 +543,28 @@ void OnlineGUI::CheckPageButtons()
   }
 }
 
-Bool_t OnlineGUI::IsHistogram( const TString& objectname )
+Bool_t OnlineGUI::IsHistogram( const RootFileObj& fileObject )
+{
+  const auto& type = fileObject.type;
+  return type.BeginsWith("TH") && type.Length() > 2 &&
+         (type[2] == '1' || type[2] == '2' || type[2] == '3');
+}
+
+Bool_t OnlineGUI::IsHistogram( const TString& objectname ) const
 {
   // Utility to determine if the objectname provided is a histogram
 
-  for( const auto& fileObject: fileObjects ) {
-    if( fileObject.name.Contains(objectname) ) {
-      if( fVerbosity >= 2 )
-        cout << fileObject.name << "      "
-             << fileObject.type << endl;
+  RootFileObj target{objectname, "", ""};
+  auto found = fileObjects.find(target);
+  if( found == fileObjects.end() )
+    return kFALSE;
 
-      if( fileObject.type.Contains("TH") )
-        return kTRUE;
-    }
-  }
-  return kFALSE;
+  const auto& fileObject = *found;
+  if( fVerbosity >= 2 )
+    cout << fileObject.name << "      "
+         << fileObject.type << endl;
+
+  return IsHistogram(fileObject);
 }
 
 void OnlineGUI::ScanFileObjects( TIter& iter, const TString& directory ) // NOLINT(*-no-recursion)
@@ -577,7 +583,7 @@ void OnlineGUI::ScanFileObjects( TIter& iter, const TString& directory ) // NOLI
 
     if( !objtype.BeginsWith("TDirectory") ) {  // TDirectoryFile nowadays
       // Normal case
-      fileObjects.push_back(
+      auto success = fileObjects.insert(
         std::move(RootFileObj{std::move(objname), std::move(objtitle),
                                 std::move(objtype)}));
 
@@ -661,30 +667,21 @@ void OnlineGUI::GetRootTree()
   // Fills the fRootTree vector
   fRootTree.clear();
 
-  std::list<TString> found;
   for( const auto& fileObject: fileObjects ) {
 
     if( fVerbosity >= 2 )
       cout << "Object = " << fileObject.type <<
            "     Name = " << fileObject.name << endl;
 
-    if( fileObject.type.Contains("TTree") )
-      found.push_back(fileObject.name);
+    if( fileObject.type == "TTree" ) {
+      auto* tree = fRootFile->Get<TTree>(fileObject.name);
+      if( tree )
+        fRootTree.push_back(tree);
+    }
   }
 
-  // Remove duplicates, then insert into fRootTree
-  found.unique();
-  UInt_t nTrees = found.size();
-
-  for( UInt_t i = 0; i < nTrees; i++ ) {
-    fRootTree.push_back((TTree*) fRootFile->Get(found.front()));
-    found.pop_front();
-  }
   // Initialize the fTreeEntries vector
-  fTreeEntries.clear();
-  for( UInt_t i = 0; i < fRootTree.size(); i++ ) {
-    fTreeEntries.push_back(0);
-  }
+  fTreeEntries.assign(fRootTree.size(), 0);
 }
 
 UInt_t OnlineGUI::GetTreeIndex( const TString& var )
@@ -1064,97 +1061,110 @@ void OnlineGUI::HistDraw( const cmdmap_t& command )
   bool showstat = getMapVal(command, "nostat").empty();
   SetupPad(command);
 
-  // Determine dimensionality of histogram
   const string& var = getMapVal(command, "variable");
-  if( var.empty() ) return;
+  assert(!var.empty());  // logic error in DoDraw()
   const char* cvar = var.c_str();
-  for( const auto& fileObject: fileObjects ) {
-    if( fileObject.name.Contains(var) ) {
-      if( fileObject.type.Contains("TH1") ) {
-        if( showGolden ) fRootFile->cd();
-        mytemp1d = dynamic_cast<TH1*> (gDirectory->Get(cvar));
-        assert(mytemp1d);
-        if( !mytemp1d ) break;
-        if( mytemp1d->GetEntries() == 0 ) {
-          BadDraw("Empty Histogram");
-        } else {
-          if( showGolden ) {
-            fGoldenFile->cd();
-            mytemp1d_golden = dynamic_cast<TH1*> (gDirectory->Get(cvar));
-            assert(mytemp1d_golden);
-            if( !mytemp1d_golden ) break;
-            mytemp1d_golden->SetLineColor(30);
-            mytemp1d_golden->SetFillColor(30);
-            Style_t fillstyle = fPrintOnly ? 3010 : 3027;
-            mytemp1d_golden->SetFillStyle(fillstyle);
-            mytemp1d_golden->SetStats(false);
-            if( newtitle != "" ) mytemp1d_golden->SetTitle(newtitle);
-            mytemp1d_golden->Draw();
-            mytemp1d->SetStats(showstat);
-            if( newtitle != "" ) mytemp1d->SetTitle(newtitle); // for SaveImage
-            mytemp1d->Draw("sames" + drawopt);
-          } else {
-            mytemp1d->SetStats(showstat);
-            if( newtitle != "" ) mytemp1d->SetTitle(newtitle);
-            mytemp1d->Draw(drawopt);
-          }
-          SaveImage(mytemp1d, command);
-        }
-        break;
+  RootFileObj target{cvar, "", ""};
+//FIXME This search is redundant (IsHistogram)
+  auto found = fileObjects.find(target);
+  if( found == fileObjects.end() )
+    return;
+  const auto& fileObject = *found;
+  assert(fileObject.type.BeginsWith("TH")); // logic error in IsHistogram
+
+  // Determine dimensionality of histogram
+  auto dim = fileObject.type[2]; // Histogram dimension ('1', '2', or '3')
+  switch( dim ) {
+    case '1':  // TH1
+      if( showGolden )
+        fRootFile->cd();
+      mytemp1d = gDirectory->Get<TH1>(cvar);
+      assert(mytemp1d);
+      if( !mytemp1d || mytemp1d->GetEntries() == 0 ) {
+        BadDraw("Empty Histogram");
+        return;
       }
-      if( fileObject.type.Contains("TH2") ) {
-        if( showGolden ) fRootFile->cd();
-        mytemp2d = dynamic_cast<TH2*> (gDirectory->Get(cvar));
-        assert(mytemp2d);
-        if( !mytemp2d ) break;
-        if( mytemp2d->GetEntries() == 0 ) {
-          BadDraw("Empty Histogram");
-        } else {
-          // These are commented out because it usually doesn't make sense to
-          // superimpose two 2d histos together
-          // 	  if(showGolden) {
-          // 	    fGoldenFile->cd();
-          // 	    mytemp2d_golden = (TH2*)gDirectory->Get(cvar);
-          // 	    mytemp2d_golden->SetMarkerColor(2);
-          // 	    mytemp2d_golden->Draw();
-          //mytemp2d->Draw("sames");
-          // 	  } else {
+      if( showGolden ) {
+        fGoldenFile->cd();
+        mytemp1d_golden = gDirectory->Get<TH1>(cvar);
+        assert(mytemp1d_golden);
+//            if( !mytemp1d_golden ) break;
+        mytemp1d_golden->SetLineColor(30);
+        mytemp1d_golden->SetFillColor(30);
+        Style_t fillstyle = fPrintOnly ? 3010 : 3027;
+        mytemp1d_golden->SetFillStyle(fillstyle);
+        mytemp1d_golden->SetStats(false);
+        if( !newtitle.IsNull() )
+          mytemp1d_golden->SetTitle(newtitle);
+        mytemp1d_golden->Draw();
+        mytemp1d->SetStats(showstat);
+        if( !newtitle.IsNull() )
+          mytemp1d->SetTitle(newtitle); // for SaveImage
+        mytemp1d->Draw("sames" + drawopt);
+      } else {
+        mytemp1d->SetStats(showstat);
+        if( newtitle != "" ) mytemp1d->SetTitle(newtitle);
+        mytemp1d->Draw(drawopt);
+      }
+      SaveImage(mytemp1d, command);
+      break;
+
+    case '2':  // TH2
+      if( showGolden )
+        fRootFile->cd();
+      mytemp2d = gDirectory->Get<TH2>(cvar);
+      assert(mytemp2d);
+      if( !mytemp2d || mytemp2d->GetEntries() == 0 ) {
+        BadDraw("Empty Histogram");
+        return;
+      }
+      // These are commented out because it usually doesn't make sense to
+      // superimpose two 2d histos together
+      // 	  if(showGolden) {
+      // 	    fGoldenFile->cd();
+      // 	    mytemp2d_golden = (TH2*)gDirectory->Get(cvar);
+      // 	    mytemp2d_golden->SetMarkerColor(2);
+      // 	    mytemp2d_golden->Draw();
+      //mytemp2d->Draw("sames");
+      // 	  } else {
 //          if( drawopt.Contains("colz") ) {
 //            gPad->SetRightMargin(0.15);
 //          }
 
-          if( newtitle != "" ) mytemp2d->SetTitle(newtitle);
-          mytemp2d->SetStats(showstat);
-          mytemp2d->Draw(drawopt);
-          SaveImage(mytemp2d, command);
-        }
-        break;
+      if( !newtitle.IsNull() )
+        mytemp2d->SetTitle(newtitle);
+      mytemp2d->SetStats(showstat);
+      mytemp2d->Draw(drawopt);
+      SaveImage(mytemp2d, command);
+      break;
+
+    case '3':  // TH3
+      if( showGolden )
+        fRootFile->cd();
+      mytemp3d = gDirectory->Get<TH3>(cvar);
+      assert(mytemp3d);
+      if( !mytemp3d || mytemp3d->GetEntries() == 0 ) {
+        BadDraw("Empty Histogram");
+        return;
       }
-      if( fileObject.type.Contains("TH3") ) {
-        if( showGolden ) fRootFile->cd();
-        mytemp3d = dynamic_cast<TH3*> (gDirectory->Get(cvar));
-        assert(mytemp3d);
-        if( !mytemp3d ) break;
-        if( mytemp3d->GetEntries() == 0 ) {
-          BadDraw("Empty Histogram");
-        } else {
-          mytemp3d->Draw();
-          if( showGolden ) {
-            fGoldenFile->cd();
-            mytemp3d_golden = dynamic_cast<TH3*> (gDirectory->Get(cvar));
-            assert(mytemp3d_golden);
-            if( !mytemp3d_golden ) break;
-            mytemp3d_golden->SetMarkerColor(2);
-            mytemp3d_golden->Draw();
-            mytemp3d->Draw("sames" + drawopt);
-          } else {
-            mytemp3d->Draw(drawopt);
-          }
-          SaveImage(mytemp3d, command);
-        }
-        break;
+      mytemp3d->Draw();
+      if( showGolden ) {
+        fGoldenFile->cd();
+        mytemp3d_golden = gDirectory->Get<TH3>(cvar);
+        assert(mytemp3d_golden);
+//            if( !mytemp3d_golden ) break;
+        mytemp3d_golden->SetMarkerColor(2);
+        mytemp3d_golden->Draw();
+        mytemp3d->Draw("sames" + drawopt);
+      } else {
+        mytemp3d->Draw(drawopt);
       }
-    }
+      SaveImage(mytemp3d, command);
+      break;
+
+    default:
+      assert(false); // logic error in IsHistogram()
+      break;
   }
 }
 
