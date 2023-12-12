@@ -261,9 +261,9 @@ static int StrToIntRange( const string& str, int lo, int hi, const string& name 
 }
 
 //_____________________________________________________________________________
-// Constructor.  Without an argument, use default config
+// Default constructor. Create empty/default config. Does not load anything.
 OnlineConfig::OnlineConfig()
-  : OnlineConfig("default.cfg") {}
+  : OnlineConfig("") {}
 
 //_____________________________________________________________________________
 // Constructor.  Takes the config file name as the only argument.
@@ -297,6 +297,8 @@ OnlineConfig::OnlineConfig( const CmdLineOpts& opts )
   , fCanvasWidth(1120)   // -> window width = 1600
   , fCanvasHeight(1080)  // -> window height = 1200
 {
+  if( confFileName.empty() )
+    return;
   // Add .cfg extension if necessary, for compatibility with Hall C
   if( fHallC && !EndsWith(confFileName, ".cfg"))
     confFileName += ".cfg";

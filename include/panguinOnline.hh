@@ -85,6 +85,7 @@ class OnlineGUI {
 
 public:
   using cmdmap_t = std::map<std::string, std::string>;
+  OnlineGUI();
   explicit OnlineGUI( OnlineConfig config );
   void CreateGUI( const TGWindow* p, UInt_t w, UInt_t h );
   virtual ~OnlineGUI();
@@ -122,6 +123,9 @@ public:
   void MyCloseWindow();
   void CloseGUI();
   void SetVerbosity( int ver ) { fVerbosity = ver; }
+  static void Print( const RootFileObj& fobj, int typew, int namew,
+                     bool do_title = true );
+  void InspectRootFile( const std::string& scanfile );
   ClassDef(OnlineGUI, 0)
 };
 
