@@ -52,21 +52,6 @@ static const string& getMapVal( const map<string, string>& m, const string& key 
 }
 
 //_____________________________________________________________________________
-// Set up mode of current pad (axes linear/log scale, margins)
-static void SetupPad( const OnlineGUI::cmdmap_t& command )
-{
-  gPad->SetLogx(command.find("logx") != command.end());
-  gPad->SetLogy(command.find("logy") != command.end());
-  gPad->SetLogz(command.find("logz") != command.end());
-  bool do_grid = (getMapVal(command, "grid") == "grid");
-  gPad->SetGrid(do_grid, do_grid);
-
-  const string& mopt = getMapVal(command, "drawopt");
-  if( mopt.find("colz") != string::npos )
-    gPad->SetRightMargin(0.15);
-}
-
-//_____________________________________________________________________________
 // Make a temporary canvas in batch mode for drawing images to be saved
 static unique_ptr<TCanvas> MakeCanvas( const char* name = "c" )
 {
@@ -105,6 +90,21 @@ static inline string StripExtension( string str )
   if( pos != string::npos )
     str.erase(pos);
   return str;
+}
+
+//_____________________________________________________________________________
+// Set up mode of current pad (axes linear/log scale, margins)
+void OnlineGUI::SetupPad( const OnlineGUI::cmdmap_t& command )
+{
+  gPad->SetLogx(command.find("logx") != command.end());
+  gPad->SetLogy(command.find("logy") != command.end());
+  gPad->SetLogz(command.find("logz") != command.end());
+  bool do_grid = (getMapVal(command, "grid") == "grid");
+  gPad->SetGrid(do_grid, do_grid);
+
+  const string& mopt = getMapVal(command, "drawopt");
+  if( mopt.find("colz") != string::npos )
+    gPad->SetRightMargin(0.15);
 }
 
 //_____________________________________________________________________________
@@ -584,14 +584,14 @@ Bool_t OnlineGUI::IsHistogram( const TString& objectname ) const
   return IsHistogram(fileObject);
 }
 
-void OnlineGUI::ScanFileObjects( TIter& iter, const TString& directory ) // NOLINT(*-no-recursion)
+UInt_t OnlineGUI::ScanFileObjects( TIter& iter, TString directory ) // NOLINT(*-no-recursion)
 {
   TKey* key;
-  bool need_slash = !directory.IsNull() && !directory.EndsWith("/");
+  UInt_t nobj = 0;
+  if( !directory.IsNull() && !directory.EndsWith("/") )
+    directory.Append("/");
   while( (key = (TKey*) iter()) ) {
-    TString objname = directory;
-    if( need_slash ) objname.Append("/");
-    objname.Append(key->GetName());
+    TString objname = directory + key->GetName();
     TString objtype = key->GetClassName();
     TString objtitle = key->GetTitle();
 
@@ -603,19 +603,34 @@ void OnlineGUI::ScanFileObjects( TIter& iter, const TString& directory ) // NOLI
       auto success = fileObjects.insert(
         std::move(RootFileObj{std::move(objname), std::move(objtitle),
                                 std::move(objtype)}));
-
+      if( success.second )
+        ++nobj;
+      else if( success.first->type != key->GetClassName() )
+        // Warn about same-name objects with different class. ROOT may already
+        // block this situation, so this is just in case.
+        cerr << "Warning: ambiguous key " << directory << key->GetName()
+             << " in ROOT file (type "
+             << success.first->type << " vs. " << key->GetClassName() << "). "
+             << "Using " << success.first->type
+             << endl;
+//      else {
+        // Duplicate keys with the same class correspond to different "cycles".
+        // We will automatically fetch the highest cycle when we Get<>() the
+        // object later (see HistDraw)
+//      }
     } else {
       // Subdirectory
       auto* thisdir = fRootFile->Get<TDirectory>(objname);
       if( !thisdir )
         continue;
       TIter dir_iter(thisdir->GetListOfKeys());
-      ScanFileObjects(dir_iter, objname);
+      nobj += ScanFileObjects(dir_iter, objname);
     }
   }
+  return nobj;
 }
 
-void OnlineGUI::GetFileObjects()
+UInt_t OnlineGUI::GetFileObjects()
 {
   // Utility to find all objects within a File (TTree, TH1F, etc).
   //  The pair stored in the vector is <ObjName, ObjType>
@@ -629,23 +644,24 @@ void OnlineGUI::GetFileObjects()
     //     delete fRootFile;
     //     fRootFile = 0;
     //     CheckRootFile();
-    return;
+    return 0;
   }
   fileObjects.clear();
   auto* keylst = fRootFile->GetListOfKeys();
   if( !keylst || keylst->GetSize() == 0 ) {
     cerr << "Empty ROOT file. Can't make any plots \U0001F622" << endl;
-    return;
+    return 0;
   }
   TIter next(keylst);
 
   // Do the search
-  ScanFileObjects(next, "");
+  UInt_t ret = ScanFileObjects(next, "");
 
   fUpdate = kTRUE;
+  return ret;
 }
 
-void OnlineGUI::GetTreeVars()
+UInt_t OnlineGUI::GetTreeVars()
 {
   // Utility to find all variables (leaves/branches) within a
   // Specified TTree and put them within the treeVars vector.
@@ -675,6 +691,7 @@ void OnlineGUI::GetTreeVars()
       }
     }
   }
+  return treeVars.size();
 }
 
 

@@ -79,54 +79,58 @@ class OnlineGUI {
   std::set<RootFileObj> fileObjects;
   std::vector<std::vector<TString> > treeVars;
 
-  std::string SubstitutePlaceholders(
-    std::string str, const std::string& var = std::string() ) const;
-  void DeleteGUI();
-
-public:
   using cmdmap_t = std::map<std::string, std::string>;
-  OnlineGUI();
-  explicit OnlineGUI( OnlineConfig config );
-  void CreateGUI( const TGWindow* p, UInt_t w, UInt_t h );
-  virtual ~OnlineGUI();
-  void DoDraw();
-  void DrawPrev();
-  void DrawNext();
-  void DoListBox( Int_t id );
+
+  static void BadDraw( const TString& );
   void CheckPageButtons();
-  // Specific Draw Methods
-  Bool_t IsHistogram( const TString& objectname ) const;
-  static Bool_t IsHistogram( const RootFileObj& fileObject );
-  Bool_t IsPrintOnly() const { return fPrintOnly; }
-  void GetFileObjects();
-  void ScanFileObjects( TIter& iter, const TString& directory );
-  void GetTreeVars();
+  void CreateGUI( const TGWindow* p, UInt_t w, UInt_t h );
+  void DeleteGUI();
+  UInt_t GetFileObjects();
   void GetRootTree();
   UInt_t GetTreeIndex( const TString& );
   UInt_t GetTreeIndexFromName( const TString& );
-  void TreeDraw( const cmdmap_t& command );
+  UInt_t GetTreeVars();
   void HistDraw( const cmdmap_t& command );
-  void MacroDraw( const cmdmap_t& command );
+  Bool_t IsHistogram( const TString& objectname ) const;
+  static Bool_t IsHistogram( const RootFileObj& fileObject );
   void LoadDraw( const cmdmap_t& command );
   void LoadLib( const cmdmap_t& command );
+  void MacroDraw( const cmdmap_t& command );
   void SaveImage( TObject* o, const cmdmap_t& command ) const;
   void SaveMacroImage( const cmdmap_t& drawcommand );
-  void DoDrawClear();
-  void TimerUpdate();
-  void UpdateCurrentTime();  // update current time
-  static void BadDraw( const TString& );
-  void CheckRootFile();
+  UInt_t ScanFileObjects( TIter& iter, TString directory );
+  static void SetupPad( const cmdmap_t& command );
+  std::string SubstitutePlaceholders(
+    std::string str, const std::string& var = std::string() ) const;
+  void TreeDraw( const cmdmap_t& command );
   Int_t OpenRootFile();
   Int_t PrepareRootFiles();
-  void PrintToFile();
-  void PrintPages();
-  void MyCloseWindow();
-  void CloseGUI();
-  void SetVerbosity( int ver ) { fVerbosity = ver; }
   static void Print( const RootFileObj& fobj, int typew, int namew,
                      bool do_title = true );
+
+public:
+  OnlineGUI();
+  explicit OnlineGUI( OnlineConfig config );
+  ~OnlineGUI();
   void InspectRootFile( const std::string& scanfile );
-  ClassDef(OnlineGUI, 0)
+  Bool_t IsPrintOnly() const { return fPrintOnly; }
+  void PrintPages();
+  void SetVerbosity( int ver ) { fVerbosity = ver; }
+
+  // GUI callbacks, must be public
+  void CheckRootFile();
+  void CloseGUI();
+  void DoDraw();
+  void DoDrawClear();
+  void DoListBox( Int_t id );
+  void DrawNext();
+  void DrawPrev();
+  void MyCloseWindow();
+  void PrintToFile();
+  void TimerUpdate();
+  void UpdateCurrentTime();  // update current time
+
+  ClassDefNV(OnlineGUI, 0)
 };
 
 #endif //panguinOnline_h
