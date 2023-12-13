@@ -205,6 +205,7 @@ void OnlineGUI::CreateGUI( const TGWindow* p, UInt_t w, UInt_t h )
 
   // Create the main frame
   fMain = new TGMainFrame(p, w, h);
+  fMain->SetCleanup(kDeepCleanup);
   fMain->Connect("CloseWindow()", "OnlineGUI", this, "MyCloseWindow()");
   ULong_t lightgreen, lightblue, red, mainguicolor;
   gClient->GetColorByName("lightgreen", lightgreen);
@@ -1470,21 +1471,8 @@ void OnlineGUI::DeleteGUI()
 {
   DelPtr(timer);
   DelPtr(timerNow);
-  DelPtr(fPrint);
-  DelPtr(fExit);
-  DelPtr(fRunNumber);
-  DelPtr(fPrev);
-  DelPtr(fNext);
-  DelPtr(wile);
-  DelPtr(fNow);
-  DelPtr(fRootFileLastUpdated);
-  DelPtr(fPageListBox);
-  DelPtr(hframe);
-  DelPtr(fEcanvas);
-  DelPtr(vframe);
-  DelPtr(fBottomFrame);
-  DelPtr(fTopframe);
-  DelPtr(fMain);
+  fMain->Cleanup();   // Without this, ROOT will crash on exit
+  //DelPtr(fMain);    // Don't. ROOT will clean it up on exit
 }
 
 //_____________________________________________________________________________
