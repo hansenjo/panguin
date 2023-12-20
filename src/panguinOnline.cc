@@ -729,7 +729,8 @@ UInt_t OnlineGUI::GetTreeIndex( const TString& var )
 
   //  This is for 2d draws... look for the first only
   string svar{var.Data()};
-  auto pos = svar.find_first_of(":-/*+([");
+  //FIXME use regex
+  auto pos = svar.find_first_of(":-/*+([>");
   if( pos != string::npos )
     svar.erase(pos);
 
@@ -1209,33 +1210,6 @@ void OnlineGUI::TreeDraw( const cmdmap_t& command )
   const string& mvar = getMapVal(command, "variable");
   TString var = mvar;
 
-  //  Check to see if we're projecting to a specific histogram
-  TString histoname = var(TRegexp(">>.+(?"));
-  if( histoname.Length() > 0 ) {
-    histoname.Remove(0, 2);
-    Int_t bracketindex = histoname.First("(");
-    if( bracketindex > 0 ) histoname.Remove(bracketindex);
-    if( fVerbosity >= 3 )
-      cout << histoname << " " << var(TRegexp(">>.+(?")) << endl;
-  } else {
-    histoname = "htemp";
-  }
-
-  // Combine the cuts (definecuts and specific cuts)
-  TCut cut = "";
-  const string& mcut = getMapVal(command, "cut");
-  if( command.size() > 1 ) {
-    TString tempCut = mcut;
-    vector<string> cutIdents = fConfig.GetCutIdent();
-    for( const auto& cutIdent: cutIdents ) {
-      if( tempCut.Contains(cutIdent) ) {
-        TString cut_found = fConfig.GetDefinedCut(cutIdent);
-        tempCut.ReplaceAll(cutIdent, cut_found);
-      }
-    }
-    cut = (TCut) tempCut;
-  }
-
   // Determine which Tree the variable comes from, then draw it.
   UInt_t iTree;
   const string& mtree = getMapVal(command, "tree");
@@ -1249,55 +1223,11 @@ void OnlineGUI::TreeDraw( const cmdmap_t& command )
       cout << "got index from command " << iTree << endl;
   }
 
-  const string& mopt = getMapVal(command, "drawopt");
-  if( mopt.find("colz") != string::npos )
-    gPad->SetRightMargin(0.15);
-  string mtitle = getMapVal(command, "title");
-
-  if( fVerbosity >= 3 )
-    cout << "\tDraw option:" << mopt << " and histo name " << histoname << endl;
-  if( iTree <= fRootTree.size() ) {
-    if( fVerbosity >= 1 ) {
-      cout << __PRETTY_FUNCTION__ << "\t" << __LINE__ << endl;
-      cout << mvar << "\t"
-           << mcut << "\t"
-           << mopt << "\t"
-           << mtitle << "\t"
-           << mtree << endl;
-      if( fVerbosity >= 2 )
-        cout << "\tProcessing from tree: " << iTree << "\t" << fRootTree[iTree]->GetTitle() << "\t"
-             << fRootTree[iTree]->GetName() << endl;
-    }
-    Long64_t nentries = fRootTree[iTree]->Draw(var, cut, mopt.c_str());
-    if( getMapVal(command, "grid") == "grid" ) {
-      gPad->SetGrid();
-    }
-
-    TObject* hobj = gROOT->FindObject(histoname);
-    if( fVerbosity >= 3 )
-      cout << "Finished drawing with return value " << nentries << endl;
-
-    if( nentries == -1 ) {
-      BadDraw(var + " not found");
-    } else if( nentries != 0 ) {
-      if( !mtitle.empty() ) {
-        //  Generate a "unique" histogram name based on the MD5 of the drawn variable, cut, drawopt,
-        //  and plot title.
-        //  Makes it less likely to cause a name collision if two plot titles are the same.
-        //  If you draw the exact same plot twice, the histograms will have the same name, but
-        //  since they are exactly the same, you likely won't notice (or it will complain at you).
-        TString tmpstring(var);
-        tmpstring += cut.GetTitle();
-        tmpstring += mopt;
-        tmpstring += mtitle;
-        TString myMD5 = tmpstring.MD5();
-        TH1* thathist = (TH1*) hobj;
-        thathist->SetNameTitle(myMD5, mtitle.c_str());
-        SaveImage(thathist, command);
-      }
-    } else {
-      BadDraw("Empty Histogram");
-    }
+  if( iTree < fRootTree.size() ) {
+    if( fVerbosity >= 2 )
+      cout << "\tProcessing from tree: " << iTree
+           << '\t' << fRootTree[iTree]->GetTitle()
+           << '\t' << fRootTree[iTree]->GetName() << endl;
   } else {
     BadDraw(var + " not found");
     if( fConfig.IsMonitor() ) {
@@ -1307,6 +1237,104 @@ void OnlineGUI::TreeDraw( const cmdmap_t& command )
       GetRootTree();
       GetTreeVars();
     }
+    return;
+  }
+
+  // Combine the cuts (definecuts and specific cuts)
+  TCut cut = "";
+  const string& mcut = getMapVal(command, "cut");
+  if( !mcut.empty() ) {
+    TString tempCut = mcut;
+    for( const auto& cutdef: fConfig.GetCutList() ) {
+      tempCut.ReplaceAll(cutdef.first.c_str(), cutdef.second.c_str());
+    }
+    cut = (TCut) tempCut;
+  }
+
+  // Get draw options, adjust if necessary
+  const string& mopt = getMapVal(command, "drawopt");
+  TString drawopt = mopt;
+  if( mopt.empty() ) {
+    if( /*fConfig.IsHallC() &&*/ mvar.find(':') != string::npos )
+      drawopt = "cont";  // Unless otherwise specified, draw contour 2/3D histos
+  } else if( mopt.find("colz") != string::npos ) {
+    gPad->SetRightMargin(0.15);
+  } else if( mopt == "scat" ) {
+    drawopt.Clear();
+  }
+  if( getMapVal(command, "grid") == "grid" ) {
+    gPad->SetGrid();
+  }
+
+  // Get plot title, if any
+  const string& mtitle = getMapVal(command, "title");
+
+  if( fVerbosity >= 1 ) {
+    cout << __PRETTY_FUNCTION__ << "\t" << __LINE__ << endl;
+    cout << mvar << '\t'
+         << mcut << '\t'
+         << mopt << '\t'
+         << mtitle << '\t'
+         << mtree << endl;
+  }
+
+  //  Check if we're projecting to a specific histogram
+  TString myvar = var;          // Plot expression w/o histogram projection
+  TString histoname = "htemp";  // Default if nothing specified in command
+  TString histdef;              // Histogram parameters, if any, e.g. "(100,-1.,1.)"
+
+  auto pos = var.Index(">>");
+  if( pos != kNPOS ) {
+    myvar.Remove(pos);
+    histoname = var(pos + 2, var.Length());
+    pos = histoname.Index("(");
+    if( pos != kNPOS ) {
+      histdef = histoname(pos, histoname.Length());
+      histoname.Remove(pos);
+    }
+  }
+
+  // Generate unique histogram name
+  TString tmpstring(var);
+  tmpstring += cut.GetTitle();
+  tmpstring += mopt;
+  tmpstring += mtitle;
+  histoname += "_" + tmpstring.MD5();
+
+  bool is_cached = false;
+
+  fRootFile->cd();
+  Long64_t nentries = 0;
+  TH1* hobj = gDirectory->Get<TH1>(histoname);
+  if( !hobj ) {
+    TString expr = myvar + ">>" + histoname + histdef;
+    nentries = fRootTree[iTree]->Draw(expr, cut, drawopt,
+                                      // Support "refresh", see DoDrawClear()
+                                      1000000000,
+                                      fTreeEntries[iTree]);
+    hobj = gDirectory->Get<TH1>(histoname);
+    if( !hobj )
+      return; // Should never happen, but who knows, it's ROOT
+  } else {
+    nentries = static_cast<Long64_t>(hobj->GetEntries());
+    is_cached = true;
+  }
+  hobj->Draw(drawopt);
+  //TObject* hobj = gROOT->FindObject(histoname);
+  if( fVerbosity >= 3 )
+    cout << "Finished drawing with return value " << nentries << endl;
+
+  if( nentries == -1 ) {
+    BadDraw(var + " not found");
+  } else if( nentries > 0 ) {
+    if( !mtitle.empty() )
+      hobj->SetTitle(mtitle.c_str());
+
+    if( !is_cached )
+      SaveImage(hobj, command);
+
+  } else {
+    BadDraw("Empty Histogram");
   }
 }
 
