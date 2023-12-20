@@ -182,8 +182,7 @@ public:
   bool DoSaveImages() const { return fSaveImages; }
   bool IsHallC() const { return fHallC; }
   bool IsMonitor() const { return fMonitor; };
-  const std::string& GetDefinedCut( const std::string& ident ) const;
-  VecStr_t GetCutIdent() const;
+  const std::vector<strstr_t>& GetCutList() const { return cutList; }
   void GetDrawCommand( uint_t page, uint_t nCommand,
                        std::map<std::string, std::string>& out_command ) const;
   void OverrideRootFile( int runnumber );

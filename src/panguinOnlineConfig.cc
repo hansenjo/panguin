@@ -999,32 +999,6 @@ bool OnlineConfig::ParseForMultiPlots( ConfLines_t::iterator pos )
 }
 
 //_____________________________________________________________________________
-// Returns the defined cut, according to the identifier
-const string& OnlineConfig::GetDefinedCut( const string& ident ) const
-{
-  static const string nullstr{};
-
-  for( const auto& cut: cutList ) {
-    if( cut.first == ident ) {
-      return cut.second;
-    }
-  }
-  return nullstr;
-}
-
-//_____________________________________________________________________________
-// Returns a vector of the cut identifiers, specified in config
-VecStr_t OnlineConfig::GetCutIdent() const
-{
-  vector<string> out;
-
-  for( const auto& cut: cutList ) {
-    out.push_back(cut.first);
-  }
-  return out;
-}
-
-//_____________________________________________________________________________
 // Check if a log plotting requested for the given page
 bool OnlineConfig::IsLogx ( uint_t page ) const {
   return (pageInfo.at(page).flags & kLogx) != 0;
