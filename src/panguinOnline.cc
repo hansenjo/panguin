@@ -667,7 +667,7 @@ UInt_t OnlineGUI::GetTreeVars()
   // Specified TTree and put them within the treeVars vector.
   treeVars.clear();
   TObjArray* branchList;
-  vector<TString> currentTree;
+  set<TString> currentTree;
 
   for( const auto& tree: fRootTree ) {
     currentTree.clear();
@@ -677,10 +677,9 @@ UInt_t OnlineGUI::GetTreeVars()
 
     while( (brc = (TBranch*) next()) ) {
       TString found = brc->GetName();
-      // Not sure if the line below is so smart...
-      currentTree.push_back(found);
+      currentTree.insert(std::move(found));
     }
-    treeVars.push_back(currentTree);
+    treeVars.push_back(std::move(currentTree));
   }
 
   if( fVerbosity >= 5 ) {
@@ -765,13 +764,10 @@ UInt_t OnlineGUI::GetTreeIndex( TString var )
          << "\t looking for variable: " << var << endl;
 
   for( UInt_t iTree = 0; iTree < treeVars.size(); iTree++ ) {
-    for( UInt_t ivar = 0; ivar < treeVars[iTree].size(); ivar++ ) {
-      if( fVerbosity >= 4 )
-        cout << "Checking tree " << iTree << " name:" << fRootTree[iTree]->GetName()
-             << " \t var " << ivar << " >> " << treeVars[iTree][ivar] << endl;
-      if( var == treeVars[iTree][ivar] )
-        return iTree;
-    }
+    const auto& treevars = treeVars[iTree];
+    auto found = treevars.find(var);
+    if( found != treevars.end() )
+      return iTree;
   }
 
   return fRootTree.size() + 1;

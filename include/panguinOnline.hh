@@ -77,7 +77,7 @@ class OnlineGUI {
   std::vector<TTree*> fRootTree;
   std::vector<Int_t> fTreeEntries;
   std::set<RootFileObj> fileObjects;
-  std::vector<std::vector<TString> > treeVars;
+  std::vector<std::set<TString>> treeVars;
 
   using cmdmap_t = std::map<std::string, std::string>;
 
