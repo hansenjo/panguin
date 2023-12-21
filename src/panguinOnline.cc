@@ -718,32 +718,59 @@ void OnlineGUI::GetRootTree()
   fTreeEntries.assign(fRootTree.size(), 0);
 }
 
-UInt_t OnlineGUI::GetTreeIndex( const TString& var )
+UInt_t OnlineGUI::GetTreeIndex( TString var )
 {
-  // Utility to find out which Tree (in fRootTree) has the specified
-  // variable "var".  If the variable is a collection of Tree
-  // variables (e.g. bcm1:lumi1), will only check the first
-  // (e.g. bcm1).
-  // Returns the correct index.  if not found returns an index 1
-  // larger than fRootTree.size()
+  // Utility to find out which Tree (in fRootTree) has the specified variable
+  // "var".  If the variable is a collection of Tree variables
+  // (e.g. bcm1:lumi1), will only check the first (bcm1).
+  // Returns the index of the first tree where a match is found or,
+  // if not found, fRootTree.size()+1.
+  //
+  // The approach taken here rather ill-defined because there really is no
+  // reason why several trees couldn't hold variables with identical names.
+  // To avoid ambiguity, the plot command therefore should include the -tree
+  // option.
 
-  //  This is for 2d draws... look for the first only
-  string svar{var.Data()};
-  //FIXME use regex
-  auto pos = svar.find_first_of(":-/*+([>");
-  if( pos != string::npos )
-    svar.erase(pos);
+  // Chop histogram projection, if any
+  Ssiz_t pos = var.Index(">>");
+  if( pos != kNPOS )
+    var.Remove(pos);
+
+  // Extract a tree variable name from the plot expression. This is not
+  // completely straightforward if we're dealing with a complex expression,
+  // which may, in principle, contain function calls (anything that is supported
+  // as the first argument of TTree::Draw is allowed).
+  // For example, "2*sqrt(2)*pow(var,2)" should extract "var".
+  // In practice, the plot expression typically is just a tree variable name,
+  // and so the code below reduces to a trivial substring copy.
+
+  // Regular expressions matching possible variables and functions
+  static const TRegexp var_re("[a-zA-Z][a-zA-Z0-9._]*");
+  static const TRegexp func_re("[a-zA-Z][a-zA-Z0-9_]* *(");
+
+  Ssiz_t pos2 = 0, ext, ext2;
+  while( (pos = var.Index(var_re, &ext, pos2)) != kNPOS ) {
+    Ssiz_t pos3 = var.Index(func_re, &ext2, pos2);
+    if( pos3 != pos ) {
+      // Found variable
+      var = var(pos, ext);
+      break;
+    }
+    // Found what looks like a function, not a variable
+    pos2 = pos + ext2;
+  }
 
   if( fVerbosity >= 3 )
     cout << __PRETTY_FUNCTION__ << "\t" << __LINE__ << endl
-         << "\t looking for variable: " << svar << endl;
+         << "\t looking for variable: " << var << endl;
 
   for( UInt_t iTree = 0; iTree < treeVars.size(); iTree++ ) {
     for( UInt_t ivar = 0; ivar < treeVars[iTree].size(); ivar++ ) {
       if( fVerbosity >= 4 )
         cout << "Checking tree " << iTree << " name:" << fRootTree[iTree]->GetName()
              << " \t var " << ivar << " >> " << treeVars[iTree][ivar] << endl;
-      if( svar == treeVars[iTree][ivar] ) return iTree;
+      if( var == treeVars[iTree][ivar] )
+        return iTree;
     }
   }
 
@@ -756,8 +783,7 @@ UInt_t OnlineGUI::GetTreeIndexFromName( const TString& name )
   //  name.  If it doesn't match up, return a number that's one larger
   //  than the number of found trees.
   for( UInt_t iTree = 0; iTree < fRootTree.size(); iTree++ ) {
-    TString treename = fRootTree[iTree]->GetName();
-    if( name == treename ) {
+    if( fRootTree[iTree]->GetName() == name ) {
       return iTree;
     }
   }

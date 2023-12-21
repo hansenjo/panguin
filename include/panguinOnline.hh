@@ -87,7 +87,7 @@ class OnlineGUI {
   void DeleteGUI();
   UInt_t GetFileObjects();
   void GetRootTree();
-  UInt_t GetTreeIndex( const TString& );
+  UInt_t GetTreeIndex( TString var );
   UInt_t GetTreeIndexFromName( const TString& );
   UInt_t GetTreeVars();
   void HistDraw( const cmdmap_t& command );
