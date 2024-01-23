@@ -115,7 +115,7 @@ int main( int argc, char** argv )
 #if __cplusplus >= 201402L
       auto gui = make_unique<OnlineGUI>();
 #else
-      auto gui = unique_ptr<OnlineGUI>(new OnlineGUI(std::move(fconfig)));
+      auto gui = unique_ptr<OnlineGUI>(new OnlineGUI);
 #endif
       gui->InspectRootFile(scanfile);
     }
