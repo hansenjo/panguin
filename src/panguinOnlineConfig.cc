@@ -791,18 +791,6 @@ bool OnlineConfig::IsLogz( uint_t page )
   return false;
 }
 
-Bool_t OnlineConfig::IsLogx(UInt_t page) {
-    // Check if last word on line is "logx"
-
-    UInt_t page_index = pageInfo[page].first;
-    Int_t word_index = sConfFile[page_index].size()-1;
-    if (word_index <= 0) return kFALSE;
-    TString option = sConfFile[page_index][word_index];
-    if(option == "logx") return kTRUE;
-    return kFALSE;
-
-}
-
 //_____________________________________________________________________________
 // If defined in the config, will return those dimensions
 //  for the indicated page.  Otherwise, will return the

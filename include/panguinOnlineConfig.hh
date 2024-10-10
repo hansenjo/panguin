@@ -151,6 +151,9 @@ public:
   uint_t GetPageCount() { return pageInfo.size(); };
   std::pair<uint_t, uint_t> GetPageDim( uint_t );
   bool IsLogy( uint_t page );
+  bool IsLogx( uint_t page );
+  bool IsLogxy( uint_t page );
+  bool IsLogz( uint_t page );
   std::string GetPageTitle( uint_t );
   uint_t GetDrawCount( uint_t );           // Number of histograms in a page
   void GetDrawCommand( uint_t, uint_t, std::map<std::string, std::string>& );

@@ -375,24 +375,24 @@ void OnlineGUI::DoDraw()
 
   gStyle->SetOptStat(1110);
   //gStyle->SetStatFontSize(0.1);
-    if (fConfig->IsLogxy(current_page)) {
+    if (fConfig.IsLogxy(current_page)) {
         gStyle->SetOptLogx(1);
         gStyle->SetOptLogy(1);
     } else {
-        if (fConfig->IsLogx(current_page)) {
+        if (fConfig.IsLogx(current_page)) {
             gStyle->SetOptLogx(1);
         } else {
             gStyle->SetOptLogx(0);
         }
 
-        if (fConfig->IsLogy(current_page)) {
+        if (fConfig.IsLogy(current_page)) {
             gStyle->SetOptLogy(1);
         } else {
             gStyle->SetOptLogy(0);
         }
     }
 
-    if (fConfig->IsLogz(current_page)) {
+    if (fConfig.IsLogz(current_page)) {
         gStyle->SetOptLogz(1);
     } else {
         gStyle->SetOptLogz(0);
@@ -730,13 +730,14 @@ void OnlineGUI::MacroDraw( const cmdmap_t& command )
 
   if( doGolden ) fRootFile->cd();
   //Strip the single quotes off Hall C style config file:
+  std::string macroCopy = macro;
   if (!macro.empty() && macro.front() == '\'') {
-    macro.erase(macro.begin()); // Remove first character
+    macroCopy.erase(macro.begin()); // Remove first character
   }
   if (!macro.empty() && macro.back() == '\'') {
-    macro.pop_back(); // Remove last character
+    macroCopy.pop_back(); // Remove last character
   }
-  gROOT->Macro(macro.c_str());
+  gROOT->Macro(macroCopy.c_str());
 }
 
 void OnlineGUI::LoadDraw( const cmdmap_t& command )
@@ -1094,7 +1095,7 @@ void OnlineGUI::HistDraw( const cmdmap_t& command )
         break;
       }
       if( fileObject.second.Contains("TH2") ) {
-	if( drawopt.empty() ) drawopt = "colz";
+	if( drawopt.Length() == 0 ) drawopt = "colz";
         if( showGolden ) fRootFile->cd();
         mytemp2d = dynamic_cast<TH2*> (gDirectory->Get(cvar));
         assert(mytemp2d);
