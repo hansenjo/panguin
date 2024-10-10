@@ -739,7 +739,7 @@ bool OnlineConfig::IsLogy( uint_t page )
   if( word_index <= 0 ) return false;
   const string& option = sConfFile[page_index][word_index];
   if( option == "logy" ) {
-    cout << endl << "Found a logy!!!" << endl << endl;
+    //cout << endl << "Found a logy!!!" << endl << endl;
     return true;
   }
   if( fVerbosity >= 1 ) {
@@ -750,6 +750,57 @@ bool OnlineConfig::IsLogy( uint_t page )
     }
   }
   return false;
+}
+
+bool OnlineConfig::IsLogx( uint_t page )
+{
+  uint_t page_index = pageInfo[page].first;
+  size_t word_index = sConfFile[page_index].size() - 1;
+  if( word_index <= 0 ) return false;
+  const string& option = sConfFile[page_index][word_index];
+  if( option == "logx" ) {
+    //cout << endl << "Found a logx!!!" << endl << endl;
+    return true;
+  }
+  return false;
+}
+
+bool OnlineConfig::IsLogxy( uint_t page )
+{
+  uint_t page_index = pageInfo[page].first;
+  size_t word_index = sConfFile[page_index].size() - 1;
+  if( word_index <= 0 ) return false;
+  const string& option = sConfFile[page_index][word_index];
+  if( option == "logxy" ) {
+    //cout << endl << "Found a logxy!!!" << endl << endl;
+    return true;
+  }
+  return false;
+}
+
+bool OnlineConfig::IsLogz( uint_t page )
+{
+  uint_t page_index = pageInfo[page].first;
+  size_t word_index = sConfFile[page_index].size() - 1;
+  if( word_index <= 0 ) return false;
+  const string& option = sConfFile[page_index][word_index];
+  if( option == "logz" ) {
+    //cout << endl << "Found a logz!!!" << endl << endl;
+    return true;
+  }
+  return false;
+}
+
+Bool_t OnlineConfig::IsLogx(UInt_t page) {
+    // Check if last word on line is "logx"
+
+    UInt_t page_index = pageInfo[page].first;
+    Int_t word_index = sConfFile[page_index].size()-1;
+    if (word_index <= 0) return kFALSE;
+    TString option = sConfFile[page_index][word_index];
+    if(option == "logx") return kTRUE;
+    return kFALSE;
+
 }
 
 //_____________________________________________________________________________

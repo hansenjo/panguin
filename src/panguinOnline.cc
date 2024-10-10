@@ -177,7 +177,7 @@ OnlineGUI::OnlineGUI( OnlineConfig config )
     throw runtime_error("Error opening ROOT file");
 
   if( !fPrintOnly )
-    CreateGUI(gClient->GetRoot(), 1600, 1200);
+    CreateGUI(gClient->GetRoot(), 2000, 1000);
 }
 
 void OnlineGUI::CreateGUI( const TGWindow* p, UInt_t w, UInt_t h )
@@ -280,7 +280,7 @@ void OnlineGUI::CreateGUI( const TGWindow* p, UInt_t w, UInt_t h )
                                                 kLHintsCenterY, 2, 2, 2, 2));
 
   // Create canvas widget
-  fEcanvas = new TRootEmbeddedCanvas("Ecanvas", fTopframe, UInt_t(w * 0.7), UInt_t(h * 0.9));
+  fEcanvas = new TRootEmbeddedCanvas("Ecanvas", fTopframe, UInt_t(w * 0.85), UInt_t(h * 0.9));
   fEcanvas->SetBackgroundColor(mainguicolor);
   fTopframe->AddFrame(fEcanvas, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 10, 10, 10, 1));
   fCanvas = fEcanvas->GetCanvas();
@@ -375,11 +375,28 @@ void OnlineGUI::DoDraw()
 
   gStyle->SetOptStat(1110);
   //gStyle->SetStatFontSize(0.1);
-  if( fConfig.IsLogy(current_page) ) {
-    gStyle->SetOptLogy(1);
-  } else {
-    gStyle->SetOptLogy(0);
-  }
+    if (fConfig->IsLogxy(current_page)) {
+        gStyle->SetOptLogx(1);
+        gStyle->SetOptLogy(1);
+    } else {
+        if (fConfig->IsLogx(current_page)) {
+            gStyle->SetOptLogx(1);
+        } else {
+            gStyle->SetOptLogx(0);
+        }
+
+        if (fConfig->IsLogy(current_page)) {
+            gStyle->SetOptLogy(1);
+        } else {
+            gStyle->SetOptLogy(0);
+        }
+    }
+
+    if (fConfig->IsLogz(current_page)) {
+        gStyle->SetOptLogz(1);
+    } else {
+        gStyle->SetOptLogz(0);
+    }
   //   gStyle->SetTitleH(0.10);
   //   gStyle->SetTitleW(0.40);
   gStyle->SetTitleH(0.1);
@@ -712,6 +729,13 @@ void OnlineGUI::MacroDraw( const cmdmap_t& command )
   }
 
   if( doGolden ) fRootFile->cd();
+  //Strip the single quotes off Hall C style config file:
+  if (!macro.empty() && macro.front() == '\'') {
+    macro.erase(macro.begin()); // Remove first character
+  }
+  if (!macro.empty() && macro.back() == '\'') {
+    macro.pop_back(); // Remove last character
+  }
   gROOT->Macro(macro.c_str());
 }
 
@@ -1070,6 +1094,7 @@ void OnlineGUI::HistDraw( const cmdmap_t& command )
         break;
       }
       if( fileObject.second.Contains("TH2") ) {
+	if( drawopt.empty() ) drawopt = "colz";
         if( showGolden ) fRootFile->cd();
         mytemp2d = dynamic_cast<TH2*> (gDirectory->Get(cvar));
         assert(mytemp2d);
@@ -1311,7 +1336,7 @@ void OnlineGUI::PrintPages()
     pagename += ": ";
     pagename += fConfig.GetPageTitle(current_page);
     lt->SetTextSize(0.025);
-    lt->DrawLatex(0.05, 0.98, pagename);
+    //lt->DrawLatex(0.05, 0.98, pagename);
     if( pagePrint ) {
       filename = SubstitutePlaceholders(protofilename);
       cout << "Printing page " << current_page + 1
