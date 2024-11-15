@@ -1171,6 +1171,8 @@ void OnlineGUI::HistDraw( const cmdmap_t& command )
       break;
 
     case '2':  // TH2
+      if( drawopt.IsNull() )
+        drawopt = "colz";
       if( showGolden )
         fRootFile->cd();
       mytemp2d = gDirectory->Get<TH2>(cvar);
