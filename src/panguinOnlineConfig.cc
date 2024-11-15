@@ -3,7 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <utility>
-#include <cmath>
+#include <cmath>      // lround
 #include <cassert>
 #include <stdexcept>
 #include <iomanip>    // quoted, setw, setfill
@@ -296,12 +296,20 @@ OnlineConfig::OnlineConfig( const CmdLineOpts& opts )
   , fPadNoWidth(2)
   , fCanvasWidth(1120)   // -> window width = 1600
   , fCanvasHeight(1080)  // -> window height = 1200
+  , fHScale(0.7)
+  , fVScale(0.9)
 {
   if( confFileName.empty() )
     return;
-  // Add .cfg extension if necessary, for compatibility with Hall C
-  if( fHallC && !EndsWith(confFileName, ".cfg"))
-    confFileName += ".cfg";
+  if( fHallC ) {
+    // Add .cfg extension if necessary, for compatibility with Hall C
+    if( !EndsWith(confFileName, ".cfg") )
+      confFileName += ".cfg";
+    // Preferred Hall C canvas size (2000x1000 window, 0.85 hscale)
+    fHScale = 0.85;
+    fCanvasWidth  = lround(2000 * fHScale);
+    fCanvasHeight = lround(1000 * fVScale);
+  }
 
   // Pick up config file directory/path form environment.
   // A config dir or path given on the command line takes preference.

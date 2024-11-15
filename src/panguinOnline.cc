@@ -193,8 +193,8 @@ OnlineGUI::OnlineGUI( OnlineConfig config )
 
   if( !fPrintOnly )
     CreateGUI(gClient->GetRoot(),
-              UInt_t(fConfig.GetCanvasWidth() / 0.7),
-              UInt_t(fConfig.GetCanvasHeight() / 0.9)
+              UInt_t(fConfig.GetCanvasWidth() / fConfig.GetHScale()),
+              UInt_t(fConfig.GetCanvasHeight() / fConfig.GetVScale())
     );
 }
 
@@ -234,14 +234,16 @@ void OnlineGUI::CreateGUI( const TGWindow* p, UInt_t w, UInt_t h )
   fMain->SetBackgroundColor(mainguicolor);
 
   // Top frame, to hold page buttons and canvas
-  fTopframe = new TGHorizontalFrame(fMain, w, UInt_t(h * 0.9));
+  fTopframe = new TGHorizontalFrame(fMain, w, UInt_t(h * fConfig.GetVScale()));
   fTopframe->SetBackgroundColor(mainguicolor);
   fMain->AddFrame(fTopframe, new TGLayoutHints(kLHintsExpandX
                                                | kLHintsExpandY, 10, 10, 10, 1));
 
   // Create a verticle frame widget
   //  This will hold the listbox
-  vframe = new TGVerticalFrame(fTopframe, UInt_t(w * 0.3), UInt_t(h * 0.9));
+  vframe = new TGVerticalFrame(fTopframe,
+                               UInt_t(w * (1.0 - fConfig.GetHScale())),
+                               UInt_t(h * fConfig.GetVScale()));
   vframe->SetBackgroundColor(mainguicolor);
   current_page = 0;
 
@@ -259,7 +261,7 @@ void OnlineGUI::CreateGUI( const TGWindow* p, UInt_t w, UInt_t h )
                                                    kLHintsCenterY, 5, 5, 3, 4));
 
   UInt_t maxsize = (fConfig.GetPageCount() + 1 > 30) ? 30 : fConfig.GetPageCount() + 1;
-  fPageListBox->Resize(UInt_t(w * 0.15),
+  fPageListBox->Resize(UInt_t(w * 0.5 * (1.0 - fConfig.GetHScale())),
                        fPageListBox->GetItemVsize() * (maxsize));
 
   fPageListBox->Select(0);
@@ -299,7 +301,9 @@ void OnlineGUI::CreateGUI( const TGWindow* p, UInt_t w, UInt_t h )
                                                 kLHintsCenterY, 2, 2, 2, 2));
 
   // Create canvas widget
-  fEcanvas = new TRootEmbeddedCanvas("Ecanvas", fTopframe, UInt_t(w * 0.7), UInt_t(h * 0.9));
+  fEcanvas = new TRootEmbeddedCanvas("Ecanvas", fTopframe,
+                                     UInt_t(w * fConfig.GetHScale()),
+                                     UInt_t(h * fConfig.GetVScale()));
   fEcanvas->SetBackgroundColor(mainguicolor);
   fTopframe->AddFrame(fEcanvas, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 10, 10, 10, 1));
   fCanvas = fEcanvas->GetCanvas();

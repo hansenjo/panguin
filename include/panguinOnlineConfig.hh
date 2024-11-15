@@ -81,6 +81,8 @@ class OnlineConfig {
   int fPadNoWidth;
   int fCanvasWidth;
   int fCanvasHeight;
+  double fHScale;      // fCanvasWidth  / fHScale = window width
+  double fVScale;      // fCanvasHeight / fVScale = window height
 
   int LoadFile( std::ifstream& infile, const std::string& filename );
   int CheckLoadIncludeFile( const std::string& sline,
@@ -178,6 +180,8 @@ public:
   int GetPadNoWidth() const { return fPadNoWidth; }
   int GetCanvasWidth() const { return fCanvasWidth; };
   int GetCanvasHeight() const { return fCanvasHeight; };
+  double GetHScale() const { return fHScale; };
+  double GetVScale() const { return fVScale; };
   bool DoPrintOnly() const { return fPrintOnly; }
   bool DoSaveImages() const { return fSaveImages; }
   bool IsHallC() const { return fHallC; }
