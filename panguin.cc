@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <memory>
 
-#define PANGUIN_VERSION "Panguin version 2.5 (23-Oct-2022)"
+#define PANGUIN_VERSION "Panguin version 2.5-hallc (20-Dec-2023)"
 
 using namespace std;
 
@@ -72,6 +72,7 @@ int main( int argc, char** argv )
     cli.add_option("--inspect", scanfile,
                    "List objects in given ROOT file")
       ->type_name("<file name>");
+    cli.add_flag("--hallc", hallc, "Switch to Hall C mode");
     cli.set_version_flag("-V,--version", PANGUIN_VERSION);
 
     CLI11_PARSE(cli, argc, argv)
